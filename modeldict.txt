@@ -1,0 +1,17 @@
+flashcard_data = [
+    {
+        "term": "Photosynthesis",
+        "definition": "The process by which green plants and some other organisms use sunlight to synthesize foods with the aid of chlorophyll.",
+        "context": "The lecture then moved on to explain photosynthesis, a fundamental process...",
+        "timestamp": "00:05:32",
+        "tags": ["Biology", "Plants", "Cellular Processes"]
+    },
+    {
+        "question": "What are the primary reactants of photosynthesis?",
+        "answer": "Carbon dioxide and water.",
+        "context": "We then discussed the primary reactants: carbon dioxide and water...",
+        "timestamp": "00:06:15",
+        "tags": ["Biology", "Chemistry"]
+    },
+    # ... more flashcards
+]
