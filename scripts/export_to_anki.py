@@ -34,7 +34,7 @@ def generate_anki_apkg_with_custom_note_name(
     # --- Generate a unique model ID based on the note type name ---
     my_model_id = generate_id_from_string(note_type_name)
     my_deck_id = generate_id_from_string(deck_name)
-    
+
     my_model = genanki.Model(
         my_model_id,
         note_type_name,
@@ -102,7 +102,14 @@ def generate_anki_apkg_with_custom_note_name(
         back_content = card_data.get("answer") or card_data.get("definition", "")
         context_content = card_data.get("context", "")
         timestamp_content = card_data.get("timestamp", "")
-        tags = card_data.get("tags", [])
+        raw_tags = card_data.get("tags", [])
+        cleaned_tags = []
+
+        for tag in raw_tags:
+            # Replace spaces with hyphens
+            cleaned_tags.append(tag.replace(" ", "-")) 
+        
+        tags = cleaned_tags 
 
         my_note = genanki.Note(
             model=my_model,
@@ -143,7 +150,7 @@ sample_flashcard_data = [
         "timestamp": "00:22:10",
         "tags": ["Computer Science", "Algorithms"]
     },
-    { # Example of a card with only term/definition, no context/timestamp/tags
+    {
         "term": "Algorithm",
         "definition": "A set of rules or instructions to be followed in calculations or other problem-solving operations.",
         "tags": ["General"]
