@@ -1,5 +1,22 @@
 import genanki
-import random # For generating unique IDs
+import random 
+import hashlib
+
+def generate_id_from_string(text_string):
+    """
+    Mimic how genanki generates IDs from strings.
+    """
+    hash_object = hashlib.sha256(text_string.encode('utf-8'))
+    hex_dig = hash_object.hexdigest()
+    
+    # Take first 16 hex chars for 64 bits of entropy
+    large_int = int(hex_dig[:16], 16) 
+    
+    # Apply a bitwise operation to ensure the ID is a 30-bit integer
+    # and has the 30th bit set (>= 2^30) for genanki compatibility.
+    model_id = (large_int & ((1 << 30) - 1)) | (1 << 30)
+    
+    return model_id
 
 def generate_anki_apkg_with_custom_note_name(
     flashcard_data,
@@ -14,16 +31,10 @@ def generate_anki_apkg_with_custom_note_name(
         output_filepath (str): The path to save the generated .apkg file.
     """
 
-    # --- 1. Define your Note Type (Model) ---
-    # Model ID: A unique ID for your note type. IMPORTANT: Use the same ID
-    #           if you ever want to update existing notes of this type or share the model.
-    #           Changing this ID will create a *new* note type in Anki.
-    # We'll use a fixed ID for consistency in this example, but in a real app
-    # you might want to generate stable IDs (e.g., using a hash of the name)
-    # or allow the user to specify them for advanced control.
-    my_model_id = 1607077777 # An arbitrary fixed integer for the model ID
-    my_deck_id = 1607077778  # An arbitrary fixed integer for the deck ID
-
+    # --- Generate a unique model ID based on the note type name ---
+    my_model_id = generate_id_from_string(note_type_name)
+    my_deck_id = generate_id_from_string(deck_name)
+    
     my_model = genanki.Model(
         my_model_id,
         note_type_name,
