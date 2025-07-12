@@ -10,8 +10,6 @@ import getpass
 import os
 from langchain_openai import ChatOpenAI
 from youtube_transcript_api import YoutubeTranscriptApi
-
-ytt_api = YoutubetTranscriptApi()
 checkpointer = InMemorySaver() 
 
 class State(TypedDict):
@@ -19,49 +17,59 @@ class State(TypedDict):
     transcript:str|None
     summary: str |None 
     error_message: str|N one
-    messages: Annotated[list, add_mmessages]
+    messages: Annotated[list[BaseMessage], add_mmessages]
 
-def youtube_get_transcripts(url, state:)
-    match = re.search(r'(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|\?v=)|youtu\.be\/)([^"&?\/\s]{11})', url)
+
+
+
+def youtube_get_transcripts(state:State) ->: 
+
+    youtube_url = state.get("youtube_url")
+    if not youtube_url: 
+        reutrn {"error_message": "YouTube URL not found for transcript extraction."}
+    
+    video_id_match = re.search(r'(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|\?v=)|youtu\.be\/)([^"&?\/\s]{11})', youtube_url)
+    if not video_id_match: 
+        return {"error": "Invalid YouTube URL format for transcript extraction."}
+    video_id= video_id_match.group(1)
     snippets = ytt_api.fetch(video_id)[0]
-    return snippet if match else None
 
-llm = ChaptOpenAI(
-    model ="gpt-4o", temperature=0, 
-    max_tokens = None, 
-    timeout=None, 
-    api_key = "OPENAI_API_KEY"
-)
-
-def get_youtube_metadata(video_id, api_key): 
     try: 
-        youtube= build('youtube', 'v3', developerKey= api_key)
-        request= youtube.videos().lsit(
-            prt =""
-        )
+        transcript_list= YoutubetTranscriptApi.list_transcriptions(video_id)
 
+        transcript = ""
+        try: 
+            english_transcript = transcript_list.find_transcript(['en', 'en-US', 'en-GB'])
+            transcript_data = english_transcript.fetch()
+        except NoTranscriptFound: 
+            if transcript_list: 
+                print(f"No English transcript found for {video_id}, falling back to first available")
 
+                availabe_transcripts = [to for t in transcript_list.generate_transcripts if t.is_translatable or t.is_generated]
+                if available_transcripts: 
+                    transcript_data= available_transcripts[0].fetch()
+                else: 
+                    return {"error_message:" f"Jo transcripts found forvideo ID:{video_id}", "messages": state.get("messages", []) + [FunctionMessage(name= "extract_text", content= f"Error:  No transcripts found for {video_id}.")]}
 
+            else:  
+                return{"error_message": f"No transcript found for video ID : {video_id}", "messages":state.get("messages", [])+ [FunctionMessage(name="extract_text", content= f"Error: No transcripts found for {video_id}.")]}
 
-def get_transcript(state: State): 
+        #Format transcript with timestamps
 
-agent = create_react_agent(
-    model = ".."
-    tools= [get_trasncript]
-    prompt = "You are an assistant that is supposed to take the transcript and generate a clear concise summary of the most important parts of the transcript. While summarizing, make sure to retain the time stamps and provide the time stamp along with the summarized sentence"
-    checkpointer=checkpointer 
-)
+        formatted_transcript_parts = []
+        for entry in transcipt_data: 
+            start_time= int(entry['start'])
+            formatted_transcript_parts.append(f"[{start_time}]: {entry['text']}")
 
-#Each node can revieve the current State as input and output an update
-# to the state 
+        transcript = "\n".join(formatted_transcript_parts)
 
-#Updated messages will be appended to the existing list rather than overwriting it, due to the prebuild add_messages 
-class State(TypedDict):
-    youtube_url: STARTmetadata:dict|None
-    transcript:str|None
-    summary: str |None 
-    error_message: str|N one
-    messages: Annotated[list, add_mmessages]
+        new_messages = stte.get("messages", [])+ [
+            FunctionMessage(name= "extract_text", content = f"Successfully extracted transcript for video ID: {video_id}")
+        ]
+        return {"transcript": transcript, "messages": new_messages}
+    except Exception as e: 
+        return{"error_message:" f"Error extracting transcript:{e}", "messages":state.get("message", []) + [FunctionMessage(name= "extract_text", content= f"Error extracting transcript: {e}")]}
+
 
 graph_builder = StateGraph(State)
 
