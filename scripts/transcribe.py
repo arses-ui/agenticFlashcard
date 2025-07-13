@@ -2,8 +2,17 @@ import re
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import NoTranscriptFound
 
+<<<<<<< HEAD
 # Import common types
 from common.types import State, add_messages, FunctionMessage # FunctionMessage also needed here for messages
+=======
+class State(TypedDict):
+    youtube_url: STARTmetadata:dict|None
+    transcript:str|None
+    summary: str |None 
+    error_message: str|None
+    messages: Annotated[list[BaseMessage], add_mmessages]
+>>>>>>> 35df10456e29709dc29c9f6b2f3fca904328b67c
 
 
 
