@@ -13,7 +13,7 @@ llm = ChatOpenAI(
     temperature=0,
     max_tokens=None,
     timeout=None,
-    api_key=os.environ.get("OPENAI_API_KEY")
+    api_key=os.environ.get("OPENAI_API_KEY") # Load securely from env
 )
 
 def summarize_text_function(state: State) -> dict:
