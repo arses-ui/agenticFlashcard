@@ -16,7 +16,7 @@ class State(TypedDict):
     youtube_url: STARTmetadata:dict|None
     transcript:str|None
     summary: str |None 
-    error_message: str|N one
+    error_message: str|None
     messages: Annotated[list[BaseMessage], add_mmessages]
 
 
