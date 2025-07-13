@@ -1,74 +1,60 @@
-from langgraph.prebuilt import create_react_agent
-from langchain.chat_models import init_chat_model
-from langgraph.checkpoint.memory import InMemorySaver
-from typing_extensions import TypedDict
-from langgraph.graph import StateGraph, START, END
-from langgraph.graph.message import add_messages
-from typing import Annotated 
-import os
-import getpass
-import os
-from langchain_openai import ChatOpenAI
-from youtube_transcript_api import YoutubeTranscriptApi
-checkpointer = InMemorySaver() 
+import re
+from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api._errors import NoTranscriptFound
 
-class State(TypedDict):
-    youtube_url: STARTmetadata:dict|None
-    transcript:str|None
-    summary: str |None 
-    error_message: str|N one
-    messages: Annotated[list[BaseMessage], add_mmessages]
+# Import common types
+from common.types import State, add_messages, FunctionMessage # FunctionMessage also needed here for messages
 
 
 
-
-def youtube_get_transcripts(state:State) ->: 
-
+def extract_text_function(state: State) -> dict:
+    """
+    Extracts the transcript from the YouTube video using the video_id derived from the URL.
+    Updates 'transcript' and 'messages' in the state.
+    """
     youtube_url = state.get("youtube_url")
-    if not youtube_url: 
-        reutrn {"error_message": "YouTube URL not found for transcript extraction."}
-    
+    if not youtube_url:
+        return {"error_message": "YouTube URL not found in state.", "messages": state.get("messages", []) + [FunctionMessage(name="extract_text", content="Error: YouTube URL not provided.")]}
+
     video_id_match = re.search(r'(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|\?v=)|youtu\.be\/)([^"&?\/\s]{11})', youtube_url)
-    if not video_id_match: 
-        return {"error": "Invalid YouTube URL format for transcript extraction."}
-    video_id= video_id_match.group(1)
-    snippets = ytt_api.fetch(video_id)[0]
+    if not video_id_match:
+        return {"error_message": "Invalid YouTube URL format.", "messages": state.get("messages", []) + [FunctionMessage(name="extract_text", content="Error: Invalid YouTube URL format.")]}
+    
+    video_id = video_id_match.group(1)
 
-    try: 
-        transcript_list= YoutubetTranscriptApi.list_transcriptions(video_id)
-
+    try:
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        
         transcript = ""
-        try: 
+        try:
+            # Prioritize English, then any available generated/translatable
             english_transcript = transcript_list.find_transcript(['en', 'en-US', 'en-GB'])
             transcript_data = english_transcript.fetch()
-        except NoTranscriptFound: 
-            if transcript_list: 
-                print(f"No English transcript found for {video_id}, falling back to first available")
-
-                availabe_transcripts = [to for t in transcript_list.generate_transcripts if t.is_translatable or t.is_generated]
-                if available_transcripts: 
-                    transcript_data= available_transcripts[0].fetch()
-                else: 
-                    return {"error_message:" f"Jo transcripts found forvideo ID:{video_id}", "messages": state.get("messages", []) + [FunctionMessage(name= "extract_text", content= f"Error:  No transcripts found for {video_id}.")]}
-
-            else:  
-                return{"error_message": f"No transcript found for video ID : {video_id}", "messages":state.get("messages", [])+ [FunctionMessage(name="extract_text", content= f"Error: No transcripts found for {video_id}.")]}
-
-        #Format transcript with timestamps
+        except NoTranscriptFound:
+            if transcript_list:
+                print(f"No English transcript found for {video_id}, falling back to first available.")
+                # Fallback to the first available transcript (either generated or manually uploaded)
+                available_transcripts = [t for t in transcript_list._generated_transcripts + transcript_list._manually_created_transcripts if t.is_translatable or t.is_generated]
+                if available_transcripts:
+                    transcript_data = available_transcripts[0].fetch()
+                else:
+                    return {"error_message": f"No transcripts found for video ID: {video_id}", "messages": state.get("messages", []) + [FunctionMessage(name="extract_text", content=f"Error: No transcripts found for {video_id}.")]}
+            else:
+                return {"error_message": f"No transcripts found for video ID: {video_id}", "messages": state.get("messages", []) + [FunctionMessage(name="extract_text", content=f"Error: No transcripts found for {video_id}.")]}
 
         formatted_transcript_parts = []
-        for entry in transcipt_data: 
-            start_time= int(entry['start'])
+        for entry in transcript_data:
+            start_time = int(entry['start'])
             formatted_transcript_parts.append(f"[{start_time}]: {entry['text']}")
-
+        
         transcript = "\n".join(formatted_transcript_parts)
-
-        new_messages = stte.get("messages", [])+ [
-            FunctionMessage(name= "extract_text", content = f"Successfully extracted transcript for video ID: {video_id}")
+        
+        new_messages = state.get("messages", []) + [
+            FunctionMessage(name="extract_text", content=f"Successfully extracted transcript for video ID: {video_id}")
         ]
         return {"transcript": transcript, "messages": new_messages}
-    except Exception as e: 
-        return{"error_message:" f"Error extracting transcript:{e}", "messages":state.get("message", []) + [FunctionMessage(name= "extract_text", content= f"Error extracting transcript: {e}")]}
+    except Exception as e:
+        return {"error_message": f"Error extracting transcript: {e}", "messages": state.get("messages", []) + [FunctionMessage(name="extract_text", content=f"Error extracting transcript: {e}")]}
 
 
 graph_builder = StateGraph(State)
