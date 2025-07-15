@@ -55,50 +55,57 @@ You are an expert at extracting key information from educational content and con
 Your output MUST be a JSON array of objects. Each object in the array MUST strictly follow the provided schema.
 Ensure tags have no spaces (use hyphens for multi-word tags, e.g., 'Cell-Membrane').
 If no relevant flashcards can be generated from a chunk, return an empty JSON array `[]`.
-Do NOT generate cards for greetings, introductions, or irrelevant tangents.
 """
 
     user_message = f"""
 Analyze the following transcript chunk and identify significant terms, definitions, concepts, or questions and their answers. For each identified concept, create a flashcard.
 
-**Schema for flashcards:**
-```json
+Schema:
 [
   {{
-    "term": "...",
-    "definition": "...",
-    "context": "...",
-    "timestamp": "...",
-    "tags": ["..."]
+    "term": "string",
+    "definition": "string",
+    "context": "string",
+    "timestamp": "string",
+    "tags": ["string"]
   }},
   {{
-    "question": "...",
-    "answer": "...",
-    "context": "...",
-    "timestamp": "...",
-    "tags": ["..."]
+    "question": "string",
+    "answer": "string",
+    "context": "string",
+    "timestamp": "string",
+    "tags": ["string"]
   }}
 ]
+
 Transcript Chunk:
 Timestamp: {chunk_timestamp}
 Text: {chunk_text}
 """
+
     try:
-        # Create a prompt and invoke Gemini
+        # Create prompt and invoke Gemini model
         prompt = ChatPromptTemplate.from_messages([
-            ("system", system_message),
-            ("user", user_message)
+            ("system", system_message.strip()),
+            ("user", user_message.strip())
         ])
         chain = prompt | model
         response = chain.invoke({})
-        content = response.content
 
-        # Parse JSON
-        flashcards = json.loads(content)
-        if isinstance(flashcards, list):
-            return flashcards
-        else:
-            print("Warning: Output was not a list.")
+        content = getattr(response, "content", None)
+        if not content:
+            print("Warning: Gemini returned no content.")
+            return []
+
+        try:
+            flashcards = json.loads(content)
+            if isinstance(flashcards, list):
+                return flashcards
+            else:
+                print("Warning: Parsed content is not a list.")
+                return []
+        except json.JSONDecodeError:
+            print("Warning: Could not parse JSON from Gemini output.")
             return []
 
     except Exception as e:
