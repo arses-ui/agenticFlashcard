@@ -3,9 +3,9 @@
 In this project, we develop an agentic workflow that takes source material (Youtube links, pdfs, websites), summarizes it, highlights the key takeaways, then creates flashcards based on the highlights that can be integrated to Anki. 
 
 ## Table of Contents 
-[Installation](#installation) 
-[Output](#output)
-[Dependencies](#dependencies) 
+[Installation](#installation) <br>
+[Output](#output)<br>
+[Dependencies](#dependencies)<br> 
 
 ## Installation
 1. Clone the repository:
