@@ -1,17 +1,17 @@
-# agent.py
-
 from langchain.agents import initialize_agent, Tool
 from langchain.llms import OpenAI
 from langchain.chat_models import ChatOpenAI
 from langchain.tools import tool
 import os
-
+from dotenv import load_dotenv
 from scripts import transcribe
 from scripts import summarize as summarizes
 from scripts import flashcards
 from scripts import export_to_anki
+from openai import OpenAI
 
-# Load API key
+load_dotenv()
+
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise EnvironmentError("Please set your OPENAI_API_KEY environment variable.")
