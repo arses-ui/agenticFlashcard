@@ -30,7 +30,7 @@ pip install -r requirements.txt
 ```bash
 python run_app.py
 ```
-In (run_app.py), you can modify the (test_youtube_url) and (user_choice) variables to control the application's input.
+In `run_app.py`, you can modify the `test_youtube_url` and `user_choice` variables to control the application's input.
 
 ## Output 
 The script outputs submission.csv, which can be uploaded directly to Kaggle for evaluation.
