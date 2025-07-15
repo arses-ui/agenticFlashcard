@@ -46,7 +46,7 @@ user_choice = "both" # Change this to "summary", "flashcards", or "both"
 ```
 
 ## Output 
-The script will then print the processing steps (if app.stream is used) and the final output (summary and/or flashcards) to your console.
+The script will then print the processing steps (if `app.stream` is used) and the final output (summary and/or flashcards) to your console.
 
 ## Dependencies
 - Python 3.x 
