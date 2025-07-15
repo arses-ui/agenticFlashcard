@@ -32,9 +32,6 @@ python run_app.py
 ```
 In `run_app.py`, you can modify the `test_youtube_url` and `user_choice` variables to control the application's input.
 
-## Output 
-The script outputs submission.csv, which can be uploaded directly to Kaggle for evaluation.
-
 ```bash
 
 # In your_project/run_app.py
@@ -47,6 +44,9 @@ test_youtube_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ" # Example: Rick
 # "both"       : Generate both a summary and flashcards (summary first, then flashcards).
 user_choice = "both" # Change this to "summary", "flashcards", or "both"
 ```
+
+## Output 
+The script will then print the processing steps (if app.stream is used) and the final output (summary and/or flashcards) to your console.
 
 ## Dependencies
 - Python 3.x 
