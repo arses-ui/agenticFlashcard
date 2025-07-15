@@ -1,5 +1,4 @@
 from langchain.agents import initialize_agent, Tool
-from langchain.chat_models import ChatOpenAI
 from langchain.tools import tool
 import os
 from dotenv import load_dotenv
@@ -8,14 +7,18 @@ from scripts import summarize as summarizes
 from scripts import flashcards
 from scripts import export_to_anki
 
+from langchain_google_genai import ChatGoogleGenerativeAI
+import os
+from dotenv import load_dotenv
+
 load_dotenv()
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    raise EnvironmentError("Please set your OPENAI_API_KEY environment variable.")
-
-# Initialize LLM
-llm = ChatOpenAI(temperature=0.5, openai_api_key=OPENAI_API_KEY)
+llm = ChatGoogleGenerativeAI(
+    model="gemini-pro",
+    google_api_key=GOOGLE_API_KEY,
+    temperature=0.5
+)
 
 # Wrap tools with descriptions
 tools = [
@@ -31,7 +34,7 @@ tools = [
     ),
     Tool(
         name="GenerateFlashcards",
-        func=flashcards.extract_flashcards_from_chunk_agent_openai,
+        func=flashcards.extract_flashcards_from_chunk_with_gemini,
         description="Use this to generate flashcards from a summary. Flashcard styles include: 'question-answer', 'fill-in-the-blank', or 'conceptual overview'.",
     ),
     Tool(
@@ -59,7 +62,7 @@ if __name__ == "__main__":
             print("Exiting agent.")
             break
         try:
-            result = agent.run(user_input)
+            result = agent.invoke(user_input)
             print("\nDone!\n")
         except Exception as e:
             print(f"Error: {e}")

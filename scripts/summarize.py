@@ -1,17 +1,19 @@
 import os
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
 from langchain_core.messages import FunctionMessage # Needed for messages list
 
 from common.types import State
+from langchain_google_genai import ChatGoogleGenerativeAI
+import os
+from dotenv import load_dotenv
 
-# Configure LLM using environment variable for API key
-llm = ChatOpenAI(
-    model="gpt-4o",
-    temperature=0,
-    max_tokens=None,
-    timeout=None,
-    api_key=os.environ.get("OPENAI_API_KEY") # Load securely from env
+load_dotenv()
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+llm = ChatGoogleGenerativeAI(
+    model="gemini-pro",
+    google_api_key=GOOGLE_API_KEY,
+    temperature=0.5
 )
 
 def summarize_text_function(state: State) -> dict:

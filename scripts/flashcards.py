@@ -3,17 +3,19 @@ import re
 import json
 from typing import List, Dict, Union
 from dotenv import load_dotenv
-import openai
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.prompts import ChatPromptTemplate
 
-# Load environment variables
+# Load API key from .env
 load_dotenv()
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    raise EnvironmentError("Please set your OPENAI_API_KEY environment variable.")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-# Configure OpenAI client
-client = openai.OpenAI(api_key=OPENAI_API_KEY)
-MODEL_NAME = "gpt-4o"
+# Initialize Gemini model
+llm = ChatGoogleGenerativeAI(
+    model="gemini-pro",
+    google_api_key=GOOGLE_API_KEY,
+    temperature=0.5
+)
 
 # --- Helper: Chunk transcript into overlapping parts with estimated timestamps ---
 def chunk_transcript_with_timestamps(
@@ -30,7 +32,6 @@ def chunk_transcript_with_timestamps(
         chunk_words = words[current_word_index:current_word_index + words_per_chunk]
         chunk_text = " ".join(chunk_words)
 
-        # Estimate timestamp
         estimated_seconds = int(current_word_index / avg_words_per_second)
         hours = estimated_seconds // 3600
         minutes = (estimated_seconds % 3600) // 60
@@ -43,70 +44,63 @@ def chunk_transcript_with_timestamps(
 
     return chunks
 
-# --- Main Tool: Generate flashcards from a chunk ---
-def extract_flashcards_from_chunk_agent_openai(
+# --- Main Tool: Generate flashcards from a chunk using Gemini ---
+def extract_flashcards_from_chunk_with_gemini(
     chunk_text: str,
     chunk_timestamp: str,
-    openai_client: openai.OpenAI = client,
-    model_name: str = MODEL_NAME
+    model: ChatGoogleGenerativeAI = llm
 ) -> List[Dict[str, Union[str, List[str]]]]:
     system_message = """
-        You are an expert at extracting key information from educational content and converting it into concise flashcards suitable for Anki.
-        Your output MUST be a JSON array of objects. Each object in the array MUST strictly follow the provided schema.
-        Ensure tags have no spaces (use hyphens for multi-word tags, e.g., 'Cell-Membrane').
-        If no relevant flashcards can be generated from a chunk, return an empty JSON array `[]`.
-        Do NOT generate cards for greetings, introductions, or irrelevant tangents.
-        """
+You are an expert at extracting key information from educational content and converting it into concise flashcards suitable for Anki.
+Your output MUST be a JSON array of objects. Each object in the array MUST strictly follow the provided schema.
+Ensure tags have no spaces (use hyphens for multi-word tags, e.g., 'Cell-Membrane').
+If no relevant flashcards can be generated from a chunk, return an empty JSON array `[]`.
+Do NOT generate cards for greetings, introductions, or irrelevant tangents.
+"""
 
     user_message = f"""
-        Analyze the following transcript chunk and identify significant terms, definitions, concepts, or questions and their answers. For each identified concept, create a flashcard.
+Analyze the following transcript chunk and identify significant terms, definitions, concepts, or questions and their answers. For each identified concept, create a flashcard.
 
-        **Schema for flashcards:**
-        ```json
-        [
-        {{
-            "term": "string (The key term or concept)",
-            "definition": "string (Its concise definition or explanation)",
-            "context": "string (A very short, direct phrase or sentence from the transcript chunk where the concept appeared, ideally less than 150 characters, use ellipses if truncated)",
-            "timestamp": "string (The timestamp of the *start* of the chunk, in HH:MM:SS format)",
-            "tags": ["list of strings (Relevant keywords, no spaces allowed in individual tags; use hyphens for multi-word tags, e.g., 'Biology', 'Cell-Membrane')"]
-        }},
-        {{
-            "question": "string (A question related to a concept)",
-            "answer": "string (The direct answer to the question)",
-            "context": "string (A very short, direct phrase or sentence from the transcript chunk where the concept appeared, ideally less than 150 characters, use ellipses if truncated)",
-            "timestamp": "string (The timestamp of the *start* of the chunk, in HH:MM:SS format)",
-            "tags": ["list of strings (Relevant keywords, no spaces allowed in individual tags)"]
-        }}
-        ]
-        Transcript Chunk:
-        Timestamp: {chunk_timestamp}
-        Text: {chunk_text}
-        """
+**Schema for flashcards:**
+```json
+[
+  {{
+    "term": "...",
+    "definition": "...",
+    "context": "...",
+    "timestamp": "...",
+    "tags": ["..."]
+  }},
+  {{
+    "question": "...",
+    "answer": "...",
+    "context": "...",
+    "timestamp": "...",
+    "tags": ["..."]
+  }}
+]
+Transcript Chunk:
+Timestamp: {chunk_timestamp}
+Text: {chunk_text}
+"""
     try:
-        response = openai_client.chat.completions.create(
-            model=model_name,
-            messages=[
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": user_message}
-            ],
-            temperature=0.3
-        )
-        content = response.choices[0].message.content
+        # Create a prompt and invoke Gemini
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", system_message),
+            ("user", user_message)
+        ])
+        chain = prompt | model
+        response = chain.invoke({})
+        content = response.content
 
-        try:
-            flashcards = json.loads(content)
-            if isinstance(flashcards, list):
-                return flashcards
-            else:
-                print("Warning: Response was not a list. Returning empty list.")
-                return []
-        except json.JSONDecodeError:
-            print("Warning: Could not parse JSON from model output.")
+        # Parse JSON
+        flashcards = json.loads(content)
+        if isinstance(flashcards, list):
+            return flashcards
+        else:
+            print("Warning: Output was not a list.")
             return []
 
     except Exception as e:
-        print(f"Error during OpenAI call: {e}")
+        print(f"Error using Gemini to generate flashcards: {e}")
         return []
-
-   
