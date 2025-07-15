@@ -1,29 +1,24 @@
 import os
-import re
 import json
-from typing import List, Dict, Union
+import google.generativeai as genai
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import ChatPromptTemplate
+from typing import List, Dict, Union
 
-# Load API key from .env
+# Load environment variables
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+genai.configure(api_key=GOOGLE_API_KEY)
 
 # Initialize Gemini model
-llm = ChatGoogleGenerativeAI(
-    model="gemini-pro",
-    google_api_key=GOOGLE_API_KEY,
-    temperature=0.5
-)
+model = genai.GenerativeModel("gemini-pro")
 
-# --- Helper: Chunk transcript into overlapping parts with estimated timestamps ---
 def chunk_transcript_with_timestamps(
     transcript_text: str,
     words_per_chunk: int = 400,
     overlap_words: int = 50,
     avg_words_per_second: float = 2.5
 ) -> List[Dict[str, str]]:
+    """Breaks transcript into overlapping chunks with estimated timestamps."""
     words = transcript_text.split()
     chunks = []
     current_word_index = 0
@@ -40,27 +35,18 @@ def chunk_transcript_with_timestamps(
 
         chunks.append({"text": chunk_text, "timestamp": timestamp_str})
         current_word_index += (words_per_chunk - overlap_words)
-        current_word_index = max(current_word_index, 0)
 
     return chunks
 
-# --- Main Tool: Generate flashcards from a chunk using Gemini ---
 def extract_flashcards_from_chunk_with_gemini(
     chunk_text: str,
-    chunk_timestamp: str,
-    model: ChatGoogleGenerativeAI = llm
+    chunk_timestamp: str
 ) -> List[Dict[str, Union[str, List[str]]]]:
-    system_message = """
-You are an expert at extracting key information from educational content and converting it into concise flashcards suitable for Anki.
-Your output MUST be a JSON array of objects. Each object in the array MUST strictly follow the provided schema.
-Ensure tags have no spaces (use hyphens for multi-word tags, e.g., 'Cell-Membrane').
-If no relevant flashcards can be generated from a chunk, return an empty JSON array `[]`.
-"""
+    """Generates flashcards from a transcript chunk using Gemini."""
+    prompt = f"""
+You are an expert at creating Anki flashcards from educational content.
+Generate a JSON array of flashcards from the chunk below. Use the schema strictly.
 
-    user_message = f"""
-Analyze the following transcript chunk and identify significant terms, definitions, concepts, or questions and their answers. For each identified concept, create a flashcard.
-
-Schema:
 [
   {{
     "term": "string",
@@ -78,36 +64,25 @@ Schema:
   }}
 ]
 
-Transcript Chunk:
+Chunk:
 Timestamp: {chunk_timestamp}
 Text: {chunk_text}
-"""
+    """
 
     try:
-        # Create prompt and invoke Gemini model
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", system_message.strip()),
-            ("user", user_message.strip())
-        ])
-        chain = prompt | model
-        response = chain.invoke({})
+        response = model.generate_content(prompt)
+        content = response.text
 
-        content = getattr(response, "content", None)
-        if not content:
-            print("Warning: Gemini returned no content.")
+        flashcards = json.loads(content)
+        if isinstance(flashcards, list):
+            return flashcards
+        else:
+            print("Warning: Output was not a list.")
             return []
 
-        try:
-            flashcards = json.loads(content)
-            if isinstance(flashcards, list):
-                return flashcards
-            else:
-                print("Warning: Parsed content is not a list.")
-                return []
-        except json.JSONDecodeError:
-            print("Warning: Could not parse JSON from Gemini output.")
-            return []
-
+    except json.JSONDecodeError:
+        print("Warning: Gemini output was not valid JSON.")
+        return []
     except Exception as e:
-        print(f"Error using Gemini to generate flashcards: {e}")
+        print(f"Error generating flashcards: {e}")
         return []

@@ -1,25 +1,19 @@
 import os
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.agents import initialize_agent, Tool
-from langchain.tools import tool
 
 from scripts import transcribe
 from scripts import summarize as summarizes
 from scripts import flashcards
 from scripts import export_to_anki
 
-
+# Load API key
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+if not GOOGLE_API_KEY:
+    raise EnvironmentError("Please set your GOOGLE_API_KEY in a .env file")
 
-llm = ChatGoogleGenerativeAI(
-    model="gemini-pro",
-    google_api_key=GOOGLE_API_KEY,
-    temperature=0.5
-)
-
-# Wrap tools with descriptions
+# Wrap your tools with descriptions
 tools = [
     Tool(
         name="TranscribeVideo",
@@ -42,11 +36,20 @@ tools = [
         description="Use this to export flashcards into a .apkg file for Anki. Input should be a list of flashcards.",
     ),
 ]
+from langchain.llms.base import LLM
+from typing import Optional
 
-# initialize the agent
+class DummyLLM(LLM):
+    def _call(self, prompt: str, stop: Optional[list] = None) -> str:
+        raise NotImplementedError("This LLM is a placeholder and should not be called.")
+    
+    @property
+    def _llm_type(self) -> str:
+        return "dummy"
+
 agent = initialize_agent(
     tools=tools,
-    llm=llm,
+    llm=DummyLLM(),
     agent="zero-shot-react-description",
     verbose=True
 )
@@ -61,7 +64,7 @@ if __name__ == "__main__":
             print("Exiting agent.")
             break
         try:
-            result = agent.invoke(user_input)
+            result = agent.run(user_input)
             print("\nDone!\n")
         except Exception as e:
             print(f"Error: {e}")
