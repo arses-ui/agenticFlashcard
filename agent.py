@@ -1,5 +1,4 @@
 from langchain.agents import initialize_agent, Tool
-from langchain.llms import OpenAI
 from langchain.chat_models import ChatOpenAI
 from langchain.tools import tool
 import os
@@ -8,7 +7,6 @@ from scripts import transcribe
 from scripts import summarize as summarizes
 from scripts import flashcards
 from scripts import export_to_anki
-from openai import OpenAI
 
 load_dotenv()
 
@@ -24,38 +22,26 @@ tools = [
     Tool(
         name="TranscribeVideo",
         func=transcribe.youtube_get_transcripts,
-        description=(
-            "Use this to transcribe a YouTube video. "
-            "Input should be a YouTube URL."
-        ),
+        description="Use this to transcribe a YouTube video. Input should be a YouTube URL.",
     ),
     Tool(
         name="Summarize",
         func=summarizes.summarize_text_function,
-        description=(
-            "Use this to summarize a transcript. "
-            "Can be focused for different flashcard types like 'concepts', 'formulas', or 'definitions'."
-        ),
+        description="Use this to summarize a transcript. Can be focused for different flashcard types like 'concepts', 'formulas', or 'definitions'.",
     ),
     Tool(
         name="GenerateFlashcards",
         func=flashcards.extract_flashcards_from_chunk_agent_openai,
-        description=(
-            "Use this to generate flashcards from a summary. "
-            "Flashcard styles include: 'question-answer', 'fill-in-the-blank', or 'conceptual overview'."
-        ),
+        description="Use this to generate flashcards from a summary. Flashcard styles include: 'question-answer', 'fill-in-the-blank', or 'conceptual overview'.",
     ),
     Tool(
         name="ExportToAnki",
         func=export_to_anki.generate_anki_apkg_with_custom_note_name,
-        description=(
-            "Use this to export flashcards into a .apkg file for Anki. "
-            "Input should be a list of flashcards."
-        ),
+        description="Use this to export flashcards into a .apkg file for Anki. Input should be a list of flashcards.",
     ),
 ]
 
-# Initialize the LLM-directed agent
+# initialize the agent
 agent = initialize_agent(
     tools=tools,
     llm=llm,
@@ -63,7 +49,6 @@ agent = initialize_agent(
     verbose=True
 )
 
-# CLI-style main
 if __name__ == "__main__":
     print("YouTube to Flashcards Agent")
     print("Type your request below (e.g., 'Make fill-in-the-blank flashcards from this video: https://...')")
