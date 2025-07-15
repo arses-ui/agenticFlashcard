@@ -3,9 +3,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import FunctionMessage # Needed for messages list
 
-# Import common types
-from common.types import State, add_messages # add_messages not directly used in summarize_text_function, but good to have if you ever need it
-
+from common.types import State
 
 # Configure LLM using environment variable for API key
 llm = ChatOpenAI(
