@@ -10,7 +10,7 @@ In this project, we develop an agentic workflow that takes source material (Yout
 ## Installation
 1. Clone the repository:
 ```bash
-git clone https://github.com/psakshyam/agenticFlashcard.py
+git clone https://github.com/psakshyam/agenticFlashcard.git
 cd your-repository-name
 ```
 
