@@ -1,19 +1,23 @@
+from langchain.agents import initialize_agent, Tool
+from langchain.chat_models import ChatOpenAI
+from langchain.tools import tool
 import os
 from dotenv import load_dotenv
-from langchain.agents import initialize_agent, Tool
-
 from scripts import transcribe
 from scripts import summarize as summarizes
 from scripts import flashcards
 from scripts import export_to_anki
 
-# Load API key
 load_dotenv()
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-if not GOOGLE_API_KEY:
-    raise EnvironmentError("Please set your GOOGLE_API_KEY in a .env file")
 
-# Wrap your tools with descriptions
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY:
+    raise EnvironmentError("Please set your OPENAI_API_KEY environment variable.")
+
+# Initialize LLM
+llm = ChatOpenAI(temperature=0.5, openai_api_key=OPENAI_API_KEY)
+
+# Wrap tools with descriptions
 tools = [
     Tool(
         name="TranscribeVideo",
@@ -36,20 +40,11 @@ tools = [
         description="Use this to export flashcards into a .apkg file for Anki. Input should be a list of flashcards.",
     ),
 ]
-from langchain.llms.base import LLM
-from typing import Optional
 
-class DummyLLM(LLM):
-    def _call(self, prompt: str, stop: Optional[list] = None) -> str:
-        raise NotImplementedError("This LLM is a placeholder and should not be called.")
-    
-    @property
-    def _llm_type(self) -> str:
-        return "dummy"
-
+# initialize the agent
 agent = initialize_agent(
     tools=tools,
-    llm=DummyLLM(),
+    llm=llm,
     agent="zero-shot-react-description",
     verbose=True
 )
