@@ -4,7 +4,6 @@ from langchain_ollama import OllamaLLM
 from langchain.memory import ConversationBufferMemory
 from dotenv import load_dotenv
 
-# Local script imports
 from scripts.transcribe import youtube_get_transcripts
 from scripts.summarize import summarize_transcript
 from scripts.flashcards import generate_flashcard_dict
