@@ -1,4 +1,7 @@
 .env
-
+chat_history.json
+default_anki_flashcards.apkg
+defaultsummary.txt
+defaulttranscript.txt
+defaultflashcards.json
 aienv/
-

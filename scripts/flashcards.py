@@ -1,16 +1,11 @@
 import os
 import json
-import google.generativeai as genai
-from dotenv import load_dotenv
 from typing import List, Dict, Union
+from langchain_ollama import OllamaLLM
+from langchain_core.tools import tool
 
-# Load environment variables
-load_dotenv()
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-genai.configure(api_key=GOOGLE_API_KEY)
-
-# Initialize Gemini model
-model = genai.GenerativeModel("gemini-pro")
+# Initialize LLaMA via Ollama
+llm = OllamaLLM(model="llama3", temperature=0.5)
 
 def chunk_transcript_with_timestamps(
     transcript_text: str,
@@ -18,7 +13,6 @@ def chunk_transcript_with_timestamps(
     overlap_words: int = 50,
     avg_words_per_second: float = 2.5
 ) -> List[Dict[str, str]]:
-    """Breaks transcript into overlapping chunks with estimated timestamps."""
     words = transcript_text.split()
     chunks = []
     current_word_index = 0
@@ -38,42 +32,67 @@ def chunk_transcript_with_timestamps(
 
     return chunks
 
-def extract_flashcards_from_chunk_with_gemini(
+def extract_flashcards_from_chunk_with_llama(
     chunk_text: str,
-    chunk_timestamp: str
+    chunk_timestamp: str,
+    max_flashcards: int = 10
 ) -> List[Dict[str, Union[str, List[str]]]]:
-    """Generates flashcards from a transcript chunk using Gemini."""
-    prompt = f"""
-You are an expert at creating Anki flashcards from educational content.
-Generate a JSON array of flashcards from the chunk below. Use the schema strictly.
+    """
+    Dynamically extracts flashcards using LLaMA based on chunk density.
+    Returns a list of flashcard dictionaries.
+    """
 
+    # Estimate ideal number of flashcards based on word count
+    word_count = len(chunk_text.split())
+    min_cards = 2
+    max_cards = max_flashcards
+    ideal_card_count = min(max_cards, max(min_cards, word_count // 100))
+
+    prompt = f"""
+You are an assistant that creates high-quality Anki flashcards from educational lecture text.
+
+Instructions:
+- Generate up to {ideal_card_count} flashcards for this chunk.
+- Do NOT force the number. Return fewer if content is shallow.
+- Use either 'term-definition' or 'question-answer' format.
+- Include context, timestamp, and tags for each card.
+
+JSON Format Example:
 [
   {{
-    "term": "string",
-    "definition": "string",
-    "context": "string",
-    "timestamp": "string",
-    "tags": ["string"]
+    "term": "Photosynthesis",
+    "definition": "The process by which green plants convert sunlight into energy.",
+    "context": "Used while discussing plant biology.",
+    "timestamp": "{chunk_timestamp}",
+    "tags": ["biology", "plants"]
   }},
   {{
-    "question": "string",
-    "answer": "string",
-    "context": "string",
-    "timestamp": "string",
-    "tags": ["string"]
+    "question": "What is the powerhouse of the cell?",
+    "answer": "The mitochondrion.",
+    "context": "Explained during cell structure section.",
+    "timestamp": "{chunk_timestamp}",
+    "tags": ["biology", "cells"]
   }}
 ]
 
-Chunk:
-Timestamp: {chunk_timestamp}
-Text: {chunk_text}
+Chunk Timestamp: {chunk_timestamp}
+Chunk Text:
+\"\"\"{chunk_text}\"\"\"
+
+Respond ONLY with a JSON array of flashcards.
     """
 
     try:
-        response = model.generate_content(prompt)
-        content = response.text
+        response = llm.invoke(prompt).strip()
+        json_start = response.find("[")
+        json_end = response.rfind("]") + 1
 
-        flashcards = json.loads(content)
+        if json_start == -1 or json_end == -1:
+            raise ValueError("No JSON structure found in output.")
+
+        json_str = response[json_start:json_end]
+        flashcards = json.loads(json_str)
+
         if isinstance(flashcards, list):
             return flashcards
         else:
@@ -81,8 +100,41 @@ Text: {chunk_text}
             return []
 
     except json.JSONDecodeError:
-        print("Warning: Gemini output was not valid JSON.")
+        print("Warning: LLaMA output was not valid JSON.")
         return []
     except Exception as e:
         print(f"Error generating flashcards: {e}")
         return []
+
+@tool
+def generate_flashcard_dict() -> str:
+    """
+    Generates flashcards from transcript.txt using LLaMA and saves them to flashcards.json.
+    Returns the path to the JSON file.
+    """
+    transcript_path = "defaulttranscript.txt"
+    output_path = "defaultflashcards.json"
+    if not os.path.exists(transcript_path):
+        raise FileNotFoundError(f"{transcript_path} not found.")
+
+    with open(transcript_path, "r", encoding="utf-8") as f:
+        transcript = f.read()
+
+    if not transcript.strip():
+        raise ValueError("Transcript file is empty.")
+
+    chunks = chunk_transcript_with_timestamps(transcript)
+    all_flashcards = []
+
+    for i, chunk in enumerate(chunks):
+        print(f"Generating flashcards for chunk {i+1}/{len(chunks)} — Timestamp: {chunk['timestamp']}")
+        cards = extract_flashcards_from_chunk_with_llama(chunk["text"], chunk["timestamp"], max_flashcards=10)
+        print(f"Chunk {i+1} returned {len(cards)} cards")
+        all_flashcards.extend(cards)
+
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(all_flashcards, f, indent=2)
+        
+    return "Flashcards generated and saved to flashcards.json"
+

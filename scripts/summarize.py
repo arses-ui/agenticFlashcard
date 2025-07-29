@@ -1,41 +1,43 @@
 import os
-import google.generativeai as genai
-from dotenv import load_dotenv
-from common.types import State, FunctionMessage
+from langchain_ollama import OllamaLLM
+from langchain_core.tools import tool
 
-load_dotenv()
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-model = genai.GenerativeModel("gemini-pro")
+# Initialize LLaMA via Ollama
+llm = OllamaLLM(model="llama3", temperature=0.5)
 
-def summarize_text_function(state: State) -> dict:
-    transcript = state.get("transcript")
-    if not transcript:
-        return {
-            "error_message": "Transcript not found in state for summarization.",
-            "messages": state.get("messages", []) + [
-                FunctionMessage(name="summarize_text", content="Transcript missing.")
-            ]
-        }
+@tool
+def summarize_transcript() -> str:
+    """
+    Summarizes transcript.txt using a local LLaMA model and saves it to summary.txt.
+    Returns the summary string.
+    """
+    transcript_path = "defaulttranscript.txt"
+    output_path ="defaultsummary.txt" 
+    # Read transcript from file
+    if not os.path.exists(transcript_path):
+        raise FileNotFoundError(f"Transcript file not found: {transcript_path}")
 
+    with open(transcript_path, "r", encoding="utf-8") as f:
+        transcript = f.read()
+
+    if not transcript.strip():
+        raise ValueError("Transcript file is empty.")
+
+    # Prompt for summarization
     prompt = (
-        "You are an assistant that summarizes transcripts for educational purposes. "
-        "Keep the most important points and include timestamps (if provided). "
-        "Here's the transcript:\n\n" + transcript
+        "You are an assistant that summarizes transcripts for studying. Focus on the key ideas, "
+        "preserve any timestamps if present, and write in a concise, structured way.\n\n"
+        f"Transcript:\n{transcript}"
     )
 
     try:
-        response = model.generate_content(prompt)
-        summary = response.text
+        summary = llm.invoke(prompt).strip()
 
-        new_messages = state.get("messages", []) + [
-            FunctionMessage(name="summarize_text", content="Summary generated successfully.")
-        ]
-        return {"summary": summary, "messages": new_messages}
+        # Save summary to file
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(summary)
+
+        return "Transcript summarized and saved to summary.txt"
 
     except Exception as e:
-        return {
-            "error_message": f"Error: {e}",
-            "messages": state.get("messages", []) + [
-                FunctionMessage(name="summarize_text", content=f"Error during summarization: {e}")
-            ]
-        }
+        raise RuntimeError(f"Error during summarization: {e}")

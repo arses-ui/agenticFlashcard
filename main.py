@@ -1,65 +1,69 @@
 from langchain.agents import initialize_agent, Tool
-from langchain.chat_models import ChatOpenAI
-from langchain.tools import tool
-import os
+from langchain.agents.agent_types import AgentType
+from langchain_ollama import OllamaLLM
+from langchain.memory import ConversationBufferMemory
 from dotenv import load_dotenv
-from scripts import transcribe
-from scripts import summarize as summarizes
-from scripts import flashcards
-from scripts import export_to_anki
 
+# Local script imports
+from scripts.transcribe import youtube_get_transcripts
+from scripts.summarize import summarize_transcript
+from scripts.flashcards import generate_flashcard_dict
+from scripts.export_to_anki import export_to_anki
+
+# Load environment variables
 load_dotenv()
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    raise EnvironmentError("Please set your OPENAI_API_KEY environment variable.")
-
 # Initialize LLM
-llm = ChatOpenAI(temperature=0.5, openai_api_key=OPENAI_API_KEY)
+llm = OllamaLLM(model="llama3", temperature=0.5)
 
-# Wrap tools with descriptions
+# Tool definitions
 tools = [
     Tool(
         name="TranscribeVideo",
-        func=transcribe.youtube_get_transcripts,
-        description="Use this to transcribe a YouTube video. Input should be a YouTube URL.",
+        func=youtube_get_transcripts,
+        description="Transcribes a YouTube video and saves it to transcript.txt. Input: YouTube URL."
     ),
     Tool(
-        name="Summarize",
-        func=summarizes.summarize_text_function,
-        description="Use this to summarize a transcript. Can be focused for different flashcard types like 'concepts', 'formulas', or 'definitions'.",
+        name="SummarizeTranscript",
+        func=summarize_transcript,
+        description="Summarizes transcript.txt and saves it to summary.txt. Input: anything to trigger."
     ),
     Tool(
         name="GenerateFlashcards",
-        func=flashcards.extract_flashcards_from_chunk_with_gemini,
-        description="Use this to generate flashcards from a summary. Flashcard styles include: 'question-answer', 'fill-in-the-blank', or 'conceptual overview'.",
+        func=generate_flashcard_dict,
+        description="Generates flashcards from transcript.txt and saves to flashcards.json. Input: anything to trigger."
     ),
     Tool(
         name="ExportToAnki",
-        func=export_to_anki.generate_anki_apkg_with_custom_note_name,
-        description="Use this to export flashcards into a .apkg file for Anki. Input should be a list of flashcards.",
-    ),
+        func=lambda _: export_to_anki("flashcards.json"),
+        description="Exports flashcards.json to anki_flashcards.apkg. Input: anything to trigger."
+    )
 ]
 
-# initialize the agent
+# Memory: keeps track of past steps
+memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+
+# Agent initialization
 agent = initialize_agent(
     tools=tools,
     llm=llm,
-    agent="zero-shot-react-description",
-    verbose=True
+    memory=memory,
+    agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+    verbose=True,
+    agent_kwargs={
+        "system_message": """
+You are a perfect, smart, rigid assistant that follows a strict four-step workflow to generate flashcards, then export it to .apkg to be used in Anki from a YouTube video:
+Never go back to a previous step or skip steps.Check each step's output before proceeding to the next. There will be an output confirming the successful completion of each step.
+1. Transcribe the YouTube video using TranscribeVideo tool.
+2. Summarize the transcript using SummarizeTranscript tool.
+3. Generate flashcards from transcript.txt using GenerateFlashcards tool.
+4. Export the flashcards into anki_flashcards.apkg using ExportToAnki tool.
+Stop after the 4th step, ExportToAnki step is completed and the .apkg file is generated.
+"""
+    }
 )
 
+# Run the pipeline
 if __name__ == "__main__":
-    print("YouTube to Flashcards Agent")
-    print("Type your request below (e.g., 'Make fill-in-the-blank flashcards from this video: https://...')")
-
-    while True:
-        user_input = input("\nYour prompt (or type 'exit'): ")
-        if user_input.lower() in ["exit", "quit"]:
-            print("Exiting agent.")
-            break
-        try:
-            result = agent.run(user_input)
-            print("\nDone!\n")
-        except Exception as e:
-            print(f"Error: {e}")
+    youtube_url = input("Enter YouTube URL: ").strip()
+    agent.run(f"Transcribe this YouTube video step-by-step, summarize it, generate flashcards and export as an Anki Deck: .apkg file: {youtube_url}. After the .apkg file is generated, stop running.")
