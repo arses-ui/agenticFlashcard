@@ -4,7 +4,6 @@ from typing import List, Dict, Union
 from langchain_ollama import OllamaLLM
 from langchain_core.tools import tool
 
-# Initialize LLaMA via Ollama
 llm = OllamaLLM(model="llama3", temperature=0.5)
 
 def chunk_transcript_with_timestamps(
@@ -42,7 +41,6 @@ def extract_flashcards_from_chunk_with_llama(
     Returns a list of flashcard dictionaries.
     """
 
-    # Estimate ideal number of flashcards based on word count
     word_count = len(chunk_text.split())
     min_cards = 2
     max_cards = max_flashcards

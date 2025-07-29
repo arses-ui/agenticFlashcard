@@ -14,8 +14,8 @@ def generate_id_from_string(text_string):
 
 def generate_anki_apkg_with_custom_note_name(
     flashcard_data: List[Dict],
-    deck_name: str = "YouTube Learning Flashcards",
-    note_type_name: str = "YouTube Lecture Notes",
+    deck_name = input("Enter deck name: ").strip(),
+    note_type_name: str = input("Note type: ").strip(), 
     output_filepath: str = "anki_flashcards.apkg"
 ):
     model_id = generate_id_from_string(note_type_name)

@@ -10,13 +10,10 @@ from scripts.summarize import summarize_transcript
 from scripts.flashcards import generate_flashcard_dict
 from scripts.export_to_anki import export_to_anki
 
-# Load environment variables
 load_dotenv()
 
-# Initialize LLM
 llm = OllamaLLM(model="llama3", temperature=0.5)
 
-# Tool definitions
 tools = [
     Tool(
         name="TranscribeVideo",
@@ -40,10 +37,9 @@ tools = [
     )
 ]
 
-# Memory: keeps track of past steps
 memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
-# Agent initialization
+
 agent = initialize_agent(
     tools=tools,
     llm=llm,
@@ -53,17 +49,20 @@ agent = initialize_agent(
     agent_kwargs={
         "system_message": """
 You are a perfect, smart, rigid assistant that follows a strict four-step workflow to generate flashcards, then export it to .apkg to be used in Anki from a YouTube video:
-Never go back to a previous step or skip steps.Check each step's output before proceeding to the next. There will be an output confirming the successful completion of each step.
+Never repeat steps or skip steps. Check each step's output before proceeding to the next. There will be an output confirming the successful completion of each step.
 1. Transcribe the YouTube video using TranscribeVideo tool.
 2. Summarize the transcript using SummarizeTranscript tool.
 3. Generate flashcards from transcript.txt using GenerateFlashcards tool.
 4. Export the flashcards into anki_flashcards.apkg using ExportToAnki tool.
-Stop after the 4th step, ExportToAnki step is completed and the .apkg file is generated.
+Only run one step at a time. After step 4 is complete, check the output message. If the output says "Anki package exported to anki_flashcards.apkg", then STOP. Never run tools again after that.
 """
     }
 )
 
-# Run the pipeline
 if __name__ == "__main__":
     youtube_url = input("Enter YouTube URL: ").strip()
-    agent.run(f"Transcribe this YouTube video step-by-step, summarize it, generate flashcards and export as an Anki Deck: .apkg file: {youtube_url}. After the .apkg file is generated, stop running.")
+    output = agent.run(youtube_url)
+    if "Anki package exported to anki_flashcards.apkg" in output:
+        print("It's over")
+        exit()
+
